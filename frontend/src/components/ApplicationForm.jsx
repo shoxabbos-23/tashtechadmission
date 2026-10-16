@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, User, Phone, AtSign, MapPin, School, AlertCircle, MessageSquare, ShieldCheck, Sparkles, Languages } from 'lucide-react';
+import { Send, User, Phone, AtSign, MapPin, School, AlertCircle, MessageSquare, ShieldCheck, Sparkles, Globe } from 'lucide-react';
 
 const HAS_CYRILLIC = /[\u0400-\u04FF]/;
 // Allows English letters, spaces, apostrophes/ticks (', ’, ‘, ʻ, ʼ, `), hyphens, dots
@@ -214,7 +214,7 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
             
             {/* Language requirement notice banner */}
             <div className="p-3.5 rounded-xl bg-orange-50/80 border border-orange-200/90 text-slate-700 text-xs sm:text-sm flex items-center gap-2.5 shadow-sm">
-              <Languages className="w-4 h-4 flex-shrink-0 text-[#e54519]" />
+              <Globe className="w-4 h-4 flex-shrink-0 text-[#e54519]" />
               <span className="font-medium text-slate-800">{t.form.formNotice}</span>
             </div>
 
