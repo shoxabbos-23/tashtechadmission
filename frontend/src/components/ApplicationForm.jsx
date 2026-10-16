@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { Send, User, Phone, AtSign, MapPin, School, AlertCircle, MessageSquare, ShieldCheck, Sparkles } from 'lucide-react';
+import { Send, User, Phone, AtSign, MapPin, School, AlertCircle, MessageSquare, ShieldCheck, Sparkles, Languages } from 'lucide-react';
+
+const HAS_CYRILLIC = /[\u0400-\u04FF]/;
+// Allows English letters, spaces, apostrophes/ticks (', ’, ‘, ʻ, ʼ, `), hyphens, dots
+const LATIN_NAME_REGEX = /^[A-Za-z\s'ʻ’‘`\.\-]+$/;
+// Allows English letters, numbers, spaces, and standard school punctuation
+const LATIN_SCHOOL_REGEX = /^[A-Za-z0-9\s'ʻ’‘`\.\-,\/#№()&]+$/;
 
 export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
   const [formData, setFormData] = useState({
@@ -17,8 +23,11 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
 
   const validate = () => {
     const errs = {};
-    if (!formData.full_name.trim() || formData.full_name.trim().length < 3) {
+    const trimmedName = formData.full_name.trim();
+    if (!trimmedName || trimmedName.length < 3) {
       errs.full_name = t.form.fullNameError;
+    } else if (HAS_CYRILLIC.test(trimmedName) || !LATIN_NAME_REGEX.test(trimmedName)) {
+      errs.full_name = t.form.fullNameLangError;
     }
 
     const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '');
@@ -26,20 +35,44 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
       errs.phone = t.form.phoneError;
     }
 
-    if (!formData.telegram_username.trim()) {
+    const trimmedTg = formData.telegram_username.trim();
+    const cleanHandle = trimmedTg.replace(/^@/, '').replace(/^https?:\/\/t\.me\//, '');
+    if (!trimmedTg) {
       errs.telegram_username = t.form.telegramError;
+    } else if (HAS_CYRILLIC.test(trimmedTg) || (cleanHandle && !/^[a-zA-Z0-9_]+$/.test(cleanHandle))) {
+      errs.telegram_username = t.form.telegramLangError;
     }
 
     if (!formData.region) {
       errs.region = t.form.regionError;
     }
 
-    if (!formData.school.trim() || formData.school.trim().length < 2) {
+    const trimmedSchool = formData.school.trim();
+    if (!trimmedSchool || trimmedSchool.length < 2) {
       errs.school = t.form.schoolError;
+    } else if (HAS_CYRILLIC.test(trimmedSchool) || !LATIN_SCHOOL_REGEX.test(trimmedSchool)) {
+      errs.school = t.form.schoolLangError;
+    }
+
+    const trimmedQuestion = (formData.question_text || '').trim();
+    if (trimmedQuestion && HAS_CYRILLIC.test(trimmedQuestion)) {
+      errs.question_text = t.form.questionLangError;
     }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  const handleFullNameChange = (e) => {
+    const val = e.target.value;
+    setFormData((prev) => ({ ...prev, full_name: val }));
+    if (!val.trim()) {
+      if (errors.full_name) setErrors((prev) => ({ ...prev, full_name: null }));
+    } else if (HAS_CYRILLIC.test(val) || !LATIN_NAME_REGEX.test(val)) {
+      setErrors((prev) => ({ ...prev, full_name: t.form.fullNameLangError }));
+    } else if (errors.full_name) {
+      setErrors((prev) => ({ ...prev, full_name: null }));
+    }
   };
 
   const handlePhoneChange = (e) => {
@@ -57,7 +90,40 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
       val = '@' + val;
     }
     setFormData((prev) => ({ ...prev, telegram_username: val }));
-    if (errors.telegram_username) setErrors((prev) => ({ ...prev, telegram_username: null }));
+    if (!val.trim()) {
+      if (errors.telegram_username) setErrors((prev) => ({ ...prev, telegram_username: null }));
+    } else {
+      const cleanHandle = val.replace(/^@/, '').replace(/^https?:\/\/t\.me\//, '');
+      if (HAS_CYRILLIC.test(val) || (cleanHandle && !/^[a-zA-Z0-9_]+$/.test(cleanHandle))) {
+        setErrors((prev) => ({ ...prev, telegram_username: t.form.telegramLangError }));
+      } else if (errors.telegram_username) {
+        setErrors((prev) => ({ ...prev, telegram_username: null }));
+      }
+    }
+  };
+
+  const handleSchoolChange = (e) => {
+    const val = e.target.value;
+    setFormData((prev) => ({ ...prev, school: val }));
+    if (!val.trim()) {
+      if (errors.school) setErrors((prev) => ({ ...prev, school: null }));
+    } else if (HAS_CYRILLIC.test(val) || !LATIN_SCHOOL_REGEX.test(val)) {
+      setErrors((prev) => ({ ...prev, school: t.form.schoolLangError }));
+    } else if (errors.school) {
+      setErrors((prev) => ({ ...prev, school: null }));
+    }
+  };
+
+  const handleQuestionChange = (e) => {
+    const val = e.target.value;
+    setFormData((prev) => ({ ...prev, question_text: val }));
+    if (!val.trim()) {
+      if (errors.question_text) setErrors((prev) => ({ ...prev, question_text: null }));
+    } else if (HAS_CYRILLIC.test(val)) {
+      setErrors((prev) => ({ ...prev, question_text: t.form.questionLangError }));
+    } else if (errors.question_text) {
+      setErrors((prev) => ({ ...prev, question_text: null }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -146,10 +212,19 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
+            {/* Language requirement notice banner */}
+            <div className="p-3.5 rounded-xl bg-orange-50/80 border border-orange-200/90 text-slate-700 text-xs sm:text-sm flex items-center gap-2.5 shadow-sm">
+              <Languages className="w-4 h-4 flex-shrink-0 text-[#e54519]" />
+              <span className="font-medium text-slate-800">{t.form.formNotice}</span>
+            </div>
+
             {/* 1. Full Name */}
             <div>
               <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                 {t.form.fullNameLabel} <span className="text-[#e54519]">*</span>
+                <span className="ml-2 text-[10px] sm:text-xs font-semibold text-orange-700 bg-orange-100/80 px-2 py-0.5 rounded-full border border-orange-200">
+                  {t.form.latinOnlyNote}
+                </span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -159,10 +234,7 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
                   type="text"
                   required
                   value={formData.full_name}
-                  onChange={(e) => {
-                    setFormData({ ...formData, full_name: e.target.value });
-                    if (errors.full_name) setErrors({ ...errors, full_name: null });
-                  }}
+                  onChange={handleFullNameChange}
                   placeholder={t.form.fullNamePlaceholder}
                   className={`w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border ${
                     errors.full_name ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-orange-500'
@@ -286,6 +358,9 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
             <div>
               <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                 {t.form.schoolLabel} <span className="text-[#e54519]">*</span>
+                <span className="ml-2 text-[10px] sm:text-xs font-semibold text-orange-700 bg-orange-100/80 px-2 py-0.5 rounded-full border border-orange-200">
+                  {t.form.latinOnlyNote}
+                </span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -295,10 +370,7 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
                   type="text"
                   required
                   value={formData.school}
-                  onChange={(e) => {
-                    setFormData({ ...formData, school: e.target.value });
-                    if (errors.school) setErrors({ ...errors, school: null });
-                  }}
+                  onChange={handleSchoolChange}
                   placeholder={t.form.schoolPlaceholder}
                   className={`w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-50 border ${
                     errors.school ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-orange-500'
@@ -317,6 +389,9 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
             <div>
               <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                 {t.form.questionLabel}
+                <span className="ml-2 text-[10px] sm:text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                  {t.form.latinOnlyNote}
+                </span>
               </label>
               <div className="relative">
                 <div className="absolute top-3.5 left-0 pl-3.5 pointer-events-none text-slate-400">
@@ -325,11 +400,19 @@ export default function ApplicationForm({ t, lang, onSubmissionSuccess }) {
                 <textarea
                   rows="3"
                   value={formData.question_text}
-                  onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+                  onChange={handleQuestionChange}
                   placeholder={t.form.questionPlaceholder}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-300 focus:border-orange-500 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all resize-none"
+                  className={`w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border ${
+                    errors.question_text ? 'border-red-500 focus:border-red-500' : 'border-slate-300 focus:border-orange-500'
+                  } text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all resize-none`}
                 />
               </div>
+              {errors.question_text && (
+                <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {errors.question_text}
+                </p>
+              )}
             </div>
 
             {/* Telegram Synchronization Notice */}

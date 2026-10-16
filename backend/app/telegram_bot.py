@@ -138,10 +138,10 @@ TEXTS = {
         "btn_skip": "➡️ Пропустить",
         "cancelled": "Действие отменено. Вы в главном меню:",
         "step_name": (
-            "👤 <b>1/5. Введите ваши Ф.И.О.:</b>\n"
-            "<i>(Например: Иброхимов Нумонжон Нозимжон угли)</i>"
+            "👤 <b>1/5. Введите ваши Ф.И.О. (только латиницей):</b>\n"
+            "<i>(Например: Ibrokhimov Numonjon Nozimjon ugli)</i>"
         ),
-        "invalid_name": "Пожалуйста, введите ваше полное имя и фамилию:",
+        "invalid_name": "Пожалуйста, введите ваше полное имя и фамилию латинскими буквами:",
         "step_phone": (
             "📞 <b>2/5. Введите номер телефона или нажмите кнопку ниже:</b>\n"
             "<i>(Например: +998901234567)</i>"
@@ -155,12 +155,12 @@ TEXTS = {
         "step_region_sub": "Нажмите на ваш регион из списка ниже:",
         "region_selected": "📍 Регион выбран: <b>{region}</b>",
         "step_school": (
-            "🏫 <b>5/5. В какой школе или академическом лицее вы учитесь?</b>\n"
-            "<i>(Например: Специализированная школа №110)</i>"
+            "🏫 <b>5/5. В какой школе или академическом лицее вы учитесь? (только латиницей):</b>\n"
+            "<i>(Например: Specialized School #110 или AL TDTU)</i>"
         ),
-        "invalid_school": "Пожалуйста, введите полное название школы или лицея:",
+        "invalid_school": "Пожалуйста, укажите название школы или лицея латинскими буквами:",
         "step_comment": (
-            "💬 <b>Есть ли у вас дополнительный вопрос или комментарий?</b>\n"
+            "💬 <b>Есть ли у вас дополнительный вопрос или комментарий? (только латиницей):</b>\n"
             "<i>(Необязательно. Если нет, нажмите '➡️ Пропустить')</i>"
         ),
         "apply_success": (
@@ -671,6 +671,21 @@ async def on_private_message(message: Message):
             if len(name) < 3:
                 await message.answer(t["invalid_name"])
                 return
+            if re.search(r"[\u0400-\u04FF]", name) or not re.match(r"^[A-Za-z\s'ʻ’‘`\.\-]+$", name):
+                await message.answer(
+                    "⚠️ <b>Iltimos, ism-familiyangizni faqat ingliz (lotin) harflarida kiriting!</b>\n"
+                    "Kirill harflari qabul qilinmaydi.\n"
+                    "<i>Masalan: Ibrokhimov Numonjon Nozimjon o'g'li</i>"
+                    if lang == "uz" else
+                    "⚠️ <b>Пожалуйста, вводите Ф.И.О. только на английском (латиницей)!</b>\n"
+                    "Кириллица не принимается.\n"
+                    "<i>Например: Ibrokhimov Numonjon Nozimjon ugli</i>"
+                    if lang == "ru" else
+                    "⚠️ <b>Please enter your full name using only English (Latin) letters!</b>\n"
+                    "Cyrillic characters are not allowed.\n"
+                    "<i>E.g.: Ibrokhimov Numonjon Nozimjon ugli</i>"
+                )
+                return
             data["full_name"] = name
             update_session(db, user_id, "PHONE", data)
             await message.answer(
@@ -705,6 +720,19 @@ async def on_private_message(message: Message):
             tg = (message.text or "").strip()
             if not tg.startswith("@") and not tg.startswith("https://t.me/"):
                 tg = "@" + tg
+            clean_handle = tg.replace("@", "").replace("https://t.me/", "")
+            if re.search(r"[\u0400-\u04FF]", tg) or (clean_handle and not re.match(r"^[a-zA-Z0-9_]+$", clean_handle)):
+                await message.answer(
+                    "⚠️ <b>Telegram username faqat lotin harflari va raqamlardan iborat bo'lishi kerak!</b>\n"
+                    "<i>Masalan: @username</i>"
+                    if lang == "uz" else
+                    "⚠️ <b>Telegram username должен содержать только латинские буквы и цифры!</b>\n"
+                    "<i>Например: @username</i>"
+                    if lang == "ru" else
+                    "⚠️ <b>Telegram username must contain only English letters and numbers!</b>\n"
+                    "<i>E.g.: @username</i>"
+                )
+                return
             data["telegram_username"] = tg
             update_session(db, user_id, "REGION", data)
 
@@ -722,6 +750,18 @@ async def on_private_message(message: Message):
             if len(school) < 2:
                 await message.answer(t["invalid_school"])
                 return
+            if re.search(r"[\u0400-\u04FF]", school) or not re.match(r"^[A-Za-z0-9\s'ʻ’‘`\.\-,\/#№()&]+$", school):
+                await message.answer(
+                    "⚠️ <b>Iltimos, maktab/litsey nomini faqat ingliz (lotin) harflarida kiriting!</b>\n"
+                    "<i>Masalan: 110-sonli maktab yoki AL TDTU</i>"
+                    if lang == "uz" else
+                    "⚠️ <b>Пожалуйста, укажите название школы/лицея латиницей!</b>\n"
+                    "<i>Например: Specialized School #110 или AL TDTU</i>"
+                    if lang == "ru" else
+                    "⚠️ <b>Please specify school name in English (Latin) letters!</b>\n"
+                    "<i>E.g.: Specialized School #110 or Academic Lyceum</i>"
+                )
+                return
             data["school"] = school
             update_session(db, user_id, "QUESTION", data)
 
@@ -734,6 +774,18 @@ async def on_private_message(message: Message):
             q_text = (message.text or "").strip()
             if q_text in SKIP_BUTTONS or not q_text:
                 q_text = None
+            elif re.search(r"[\u0400-\u04FF]", q_text):
+                await message.answer(
+                    "⚠️ <b>Iltimos, savol yoki izohingizni faqat ingliz (lotin) harflarida yozing!</b>\n"
+                    "Agar savolingiz bo'lmasa, '➡️ O'tkazib yuborish' tugmasini bosing."
+                    if lang == "uz" else
+                    "⚠️ <b>Пожалуйста, пишите комментарий только латинскими буквами!</b>\n"
+                    "Если вопросов нет, нажмите '➡️ Пропустить'."
+                    if lang == "ru" else
+                    "⚠️ <b>Please write your question/note only in English (Latin) letters!</b>\n"
+                    "Or press '➡️ Skip' to proceed."
+                )
+                return
 
             # Ensure baseline initial leads exist so submission IDs are sequential (12+)
             seed_initial_data(db)
